@@ -2,8 +2,10 @@
 #define WOLF_HPP
 #include "Carnivore.hpp"
 
-struct Wolf { Carnivore parentStruct; };
+struct Wolf {
+    Carnivore parentStruct;
+};
 
-void Wolf_init(Wolf* w, int x, int y, int*** map);
+Animal* Wolf_giveBirth(Animal* self);
 
-#endif
+#endif // WOLF_HPP
