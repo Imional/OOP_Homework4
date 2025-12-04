@@ -2,7 +2,10 @@
 #define GIRAFFE_HPP
 #include "Herbivore.hpp"
 
-struct Giraffe { Herbivore parentStruct; };
-void Giraffe_init(Giraffe* g, int x, int y, int*** map);
+struct Giraffe {
+    Herbivore parentStruct;
+};
 
-#endif
+Animal* Giraffe_giveBirth(Animal* self);
+
+#endif // GIRAFFE_HPP
