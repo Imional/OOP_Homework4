@@ -2,8 +2,12 @@
 #define OMNIVORE_HPP
 #include "Animal.hpp"
 
-struct Omnivore { Animal parent; };
+struct Omnivore {
+    Animal parent;
+};
 
-void Omnivore_init(Omnivore* o, int x, int y, int*** map);
+void Omnivore_observe(Animal* self);
+int Omnivore_move(Animal* self);
+Animal* Omnivore_giveBirth(Animal* self);
 
-#endif
+#endif // OMNIVORE_HPP
