@@ -1,43 +1,39 @@
 #include "Giraffe.hpp"
 #include "Utils.hpp"
+#include <vector>
 
-// Re-implement giveBirth to spawn Giraffes
 Animal* Giraffe_giveBirth(Animal* self) {
     if (self->energy <= self->birthThreshold) return nullptr;
-    // ... (same neighbor finding logic) ...
     std::vector<Location> freeSpots;
     for (int dx = -1; dx <= 1; ++dx) {
         for (int dy = -1; dy <= 1; ++dy) {
             if (dx == 0 && dy == 0) continue;
-            Location n = wrapLocation(self->loc.x + dx, self->loc.y + dy);
-            if ((*self->worldMap)[n.x][n.y] > 0) freeSpots.push_back(n);
+            int nx = (self->loc.x + dx + FIELD_SIZE) % FIELD_SIZE;
+            int ny = (self->loc.y + dy + FIELD_SIZE) % FIELD_SIZE;
+            if ((*(self->map))[nx][ny] >= 0) freeSpots.push_back({nx, ny});
         }
     }
     if (freeSpots.empty()) return nullptr;
+
     Location birthLoc = randomSelection(freeSpots);
     self->energy -= self->birthCost;
+
     Giraffe* baby = new Giraffe();
-    Giraffe_init(baby, birthLoc.x, birthLoc.y, self->worldMap);
+    baby->parentStruct.parent.loc = birthLoc;
+    baby->parentStruct.parent.energy = 5;
+    baby->parentStruct.parent.movingCost = 2; // Giraffe Stat
+    baby->parentStruct.parent.birthThreshold = 15;
+    baby->parentStruct.parent.birthCost = 5;
+    baby->parentStruct.parent.energyValue = 5;
+    baby->parentStruct.parent.viewRange = 2; // Giraffe Stat
+    baby->parentStruct.parent.map = self->map;
+    baby->parentStruct.parent.typeID = 1;
+    baby->parentStruct.parent.viewArray = nullptr;
+
+    baby->parentStruct.parent.observe = Herbivore_observe;
+    baby->parentStruct.parent.move = Herbivore_move;
+    baby->parentStruct.parent.giveBirth = Giraffe_giveBirth;
+
+    (*(self->map))[birthLoc.x][birthLoc.y] = -1100000; // Giraffe Marker
     return (Animal*)baby;
-}
-
-void Giraffe_init(Giraffe* g, int x, int y, int*** map) {
-    Herbivore_init(&g->parentStruct, x, y, map);
-    [cite_start]// Overrides [cite: 232-233]
-    g->parentStruct.parent.viewRange = 2;
-    g->parentStruct.parent.movingCost = 2;
-    g->parentStruct.parent.marker = GIRAFFE_MARKER;
-    g->parentStruct.parent.giveBirth = Giraffe_giveBirth;
-
-    // Reallocate viewArray for larger range
-    delete[] g->parentStruct.parent.viewArray; // Warning: only deletes rows if looped? 
-    // Correct way: free the old 1x1 array first. 
-    // But Herbivore_init allocated 3x3 (range 1). We need 5x5.
-    // Clean up logic:
-    for(int i=0; i<3; ++i) delete[] g->parentStruct.parent.viewArray[i];
-    delete[] g->parentStruct.parent.viewArray;
-
-    int size = 5; 
-    g->parentStruct.parent.viewArray = new int*[size];
-    for(int i=0; i<size; i++) g->parentStruct.parent.viewArray[i] = new int[size];
 }
