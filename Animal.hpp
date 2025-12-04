@@ -2,18 +2,9 @@
 #define ANIMAL_HPP
 
 #include "Utils.hpp"
-#include <vector>
-
-// Forward declaration
-struct Animal;
-
-// Function pointer typedefs
-typedef void (*ObserveFunc)(Animal* self);
-typedef int (*MoveFunc)(Animal* self); // Returns index of eaten animal, or special code
-typedef Animal* (*GiveBirthFunc)(Animal* self);
 
 struct Animal {
-    [cite_start]// Attributes [cite: 93-107, 135-144]
+    // Attributes
     Location loc;
     int energy;
     int movingCost;
@@ -22,27 +13,29 @@ struct Animal {
     int energyValue;
     int viewRange;
     
-    // 2D array for scores. 
-    // We will allocate this dynamically based on viewRange.
-    int** viewArray;
-    
-    // Pointer to the global map
-    int*** worldMap; // Pointer to the raw 2D array (FieldGrid is int[50][50])
+    int** viewArray; // 2D array allocated dynamically
+    int*** map;      // Pointer to the global map pointer
 
-    [cite_start]// Behaviors [cite: 146-163]
-    ObserveFunc observe;
-    MoveFunc move;
-    GiveBirthFunc giveBirth;
+    // Helpers for ID tracking (needed for map updates)
+    int animalID;    
+    int typeID;      // 0:Herb, 1:Carn, 2:Omni (used for basic ID generation)
 
-    // Helper to identify type for map encoding (e.g., HERBIVORE_MARKER)
-    int marker; 
+    // Behavior Function Pointers
+    void (*observe)(Animal* self);
+    int (*move)(Animal* self); // Returns index of eaten animal, 100000 if none.
+    Animal* (*giveBirth)(Animal* self);
+
+    // Helper to free viewArray
+    void cleanup() {
+        if (viewArray) {
+            int size = 2 * viewRange + 1;
+            for (int i = 0; i < size; ++i) {
+                delete[] viewArray[i];
+            }
+            delete[] viewArray;
+            viewArray = nullptr;
+        }
+    }
 };
-
-// Generic behaviors implemented in Animal.cpp
-int Animal_move(Animal* self);
-Animal* Animal_giveBirth(Animal* self);
-
-// Helper to free memory
-void Animal_delete(Animal* self);
 
 #endif // ANIMAL_HPP
