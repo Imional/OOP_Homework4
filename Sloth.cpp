@@ -1,45 +1,65 @@
 #include "Sloth.hpp"
 #include "Utils.hpp"
+#include <vector>
+
+void Sloth_observe(Animal* self) {
+    Sloth* s = (Sloth*)self;
+    if (s->isSkipping) return;
+    Herbivore_observe(self);
+}
 
 int Sloth_move(Animal* self) {
     Sloth* s = (Sloth*)self;
-    [cite_start]// [cite: 240-241] Move one turn, skip next.
-    if (s->canMove) {
-        s->canMove = false;
-        return Animal_move(self);
-    } else {
-        s->canMove = true;
-        return 100000; // Skip turn, no move cost, no eat
-    }
+    if (s->isSkipping) return 100000; // Skip
+    return Herbivore_move(self);
 }
 
 Animal* Sloth_giveBirth(Animal* self) {
-    // Standard logic spawning Sloth
+    Sloth* s = (Sloth*)self;
+    
+    // Toggle state: if we just moved (not skipping), next turn we skip.
+    // If we were skipping, we wake up (set false) and return nullptr (no action this turn).
+    if (s->isSkipping) {
+        s->isSkipping = false;
+        return nullptr;
+    }
+    
+    // We acted this turn, so sleep next turn
+    s->isSkipping = true;
+
     if (self->energy <= self->birthThreshold) return nullptr;
-    // ... neighbor check ...
+    // Standard birth logic
     std::vector<Location> freeSpots;
     for (int dx = -1; dx <= 1; ++dx) {
         for (int dy = -1; dy <= 1; ++dy) {
             if (dx == 0 && dy == 0) continue;
-            Location n = wrapLocation(self->loc.x + dx, self->loc.y + dy);
-            if ((*self->worldMap)[n.x][n.y] > 0) freeSpots.push_back(n);
+            int nx = (self->loc.x + dx + FIELD_SIZE) % FIELD_SIZE;
+            int ny = (self->loc.y + dy + FIELD_SIZE) % FIELD_SIZE;
+            if ((*(self->map))[nx][ny] >= 0) freeSpots.push_back({nx, ny});
         }
     }
     if (freeSpots.empty()) return nullptr;
+
     Location birthLoc = randomSelection(freeSpots);
     self->energy -= self->birthCost;
 
     Sloth* baby = new Sloth();
-    Sloth_init(baby, birthLoc.x, birthLoc.y, self->worldMap);
-    // Baby Sloth waits for next turn? Prompt says "first turn after birth". 
-    // Init sets canMove = true.
-    return (Animal*)baby;
-}
+    baby->parentStruct.parent.loc = birthLoc;
+    baby->parentStruct.parent.energy = 5;
+    baby->parentStruct.parent.movingCost = 1;
+    baby->parentStruct.parent.birthThreshold = 15;
+    baby->parentStruct.parent.birthCost = 5;
+    baby->parentStruct.parent.energyValue = 5;
+    baby->parentStruct.parent.viewRange = 1;
+    baby->parentStruct.parent.map = self->map;
+    baby->parentStruct.parent.typeID = 1;
+    baby->parentStruct.parent.viewArray = nullptr;
+    baby->isSkipping = false; // Newborns act on first turn
 
-void Sloth_init(Sloth* s, int x, int y, int*** map) {
-    Herbivore_init(&s->parentStruct, x, y, map);
-    s->canMove = true; [cite_start]// [cite: 241]
-    s->parentStruct.parent.move = Sloth_move;
-    s->parentStruct.parent.giveBirth = Sloth_giveBirth;
-    s->parentStruct.parent.marker = SLOTH_MARKER;
+    baby->parentStruct.parent.observe = Sloth_observe;
+    baby->parentStruct.parent.move = Sloth_move;
+    baby->parentStruct.parent.giveBirth = Sloth_giveBirth;
+
+    (*(self->map))[birthLoc.x][birthLoc.y] = -1200000;
+    return (Animal*)baby;
 }
