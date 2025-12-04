@@ -2,8 +2,10 @@
 #define TIGER_HPP
 #include "Carnivore.hpp"
 
-struct Tiger { Carnivore parentStruct; };
+struct Tiger {
+    Carnivore parentStruct;
+};
 
-void Tiger_init(Tiger* t, int x, int y, int*** map);
+Animal* Tiger_giveBirth(Animal* self);
 
-#endif
+#endif // TIGER_HPP
