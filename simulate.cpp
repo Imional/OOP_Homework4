@@ -1,5 +1,5 @@
-#include "Utils.hpp"
 #include "SimulationHelper.hpp"
+#include "Utils.hpp"
 #include "Animal.hpp"
 #include "Herbivore.hpp"
 #include "Carnivore.hpp"
@@ -7,10 +7,11 @@
 #include "Sloth.hpp"
 #include "Tiger.hpp"
 #include "Wolf.hpp"
-#include "Omnivore.hpp" // Extra Credit 1.3
+#include "Omnivore.hpp"
 
 #include <iostream>
 #include <vector>
+#include <cmath>
 #include <algorithm>
 
 /*****************************************
@@ -18,136 +19,214 @@ YOU MUST EDIT THE STUDENT ID BELOW!!!
 ******************************************/
 std::string studentID = "2025150009";
 /*****************************************
-YOU MUST EDIT THE STUDENT ID ABOVE!!!
+YOU MUST EDIT THE STUDENT ABOVE!!!
 ******************************************/
 
 const int SIMULATE_ITERATION_COUNT = 100000;
-extern int globalMap[FIELD_SIZE][FIELD_SIZE]; // Defined in SimulationHelper usually, or we define here if needed.
-int globalMap[FIELD_SIZE][FIELD_SIZE];
+
+int** globalMap = nullptr;
+
+// Helper to spawn additional animals (1.2/1.3)
+void spawnExtraAnimals(std::vector<Animal*>& animals, int count, int type) {
+    // Find free cells
+    std::vector<Location> freeCells;
+    for(int x=0; x<FIELD_SIZE; ++x) {
+        for(int y=0; y<FIELD_SIZE; ++y) {
+             // Simple check: positive grass or 0.
+             // Existing animals are < 0.
+             if (globalMap[x][y] >= 0) freeCells.push_back({x, y});
+        }
+    }
+    
+    for(int i=0; i<count; ++i) {
+        if(freeCells.empty()) break;
+        Location loc = randomSelection(freeCells);
+        // Remove chosen loc from freeCells (inefficient but safe for init)
+        for(size_t k=0; k<freeCells.size(); ++k) {
+            if(freeCells[k].x == loc.x && freeCells[k].y == loc.y) {
+                freeCells.erase(freeCells.begin() + k);
+                break;
+            }
+        }
+        
+        Animal* a = nullptr;
+        int marker = 0;
+        
+        if (type == 1) { // Giraffe
+            Giraffe* g = new Giraffe();
+            a = (Animal*)g;
+            a->loc = loc; a->energy=5; a->movingCost=2; a->birthThreshold=15; a->birthCost=5;
+            a->energyValue=5; a->viewRange=2; a->map=&globalMap; a->typeID=1; a->viewArray=nullptr;
+            a->observe = Herbivore_observe; a->move = Herbivore_move; a->giveBirth = Giraffe_giveBirth;
+            marker = -11;
+        } else if (type == 2) { // Sloth
+            Sloth* s = new Sloth();
+            s->isSkipping = false;
+            a = (Animal*)s;
+            a->loc = loc; a->energy=5; a->movingCost=1; a->birthThreshold=15; a->birthCost=5;
+            a->energyValue=5; a->viewRange=1; a->map=&globalMap; a->typeID=1; a->viewArray=nullptr;
+            a->observe = Sloth_observe; a->move = Sloth_move; a->giveBirth = Sloth_giveBirth;
+            marker = -12;
+        } else if (type == 3) { // Tiger
+            Tiger* t = new Tiger();
+            a = (Animal*)t;
+            a->loc = loc; a->energy=5; a->movingCost=4; a->birthThreshold=40; a->birthCost=30;
+            a->energyValue=5; a->viewRange=2; a->map=&globalMap; a->typeID=2; a->viewArray=nullptr;
+            a->observe = Carnivore_observe; a->move = Carnivore_move; a->giveBirth = Tiger_giveBirth;
+            marker = -21;
+        } else if (type == 4) { // Wolf
+            Wolf* w = new Wolf();
+            a = (Animal*)w;
+            a->loc = loc; a->energy=5; a->movingCost=2; a->birthThreshold=40; a->birthCost=30;
+            a->energyValue=5; a->viewRange=1; a->map=&globalMap; a->typeID=2; a->viewArray=nullptr;
+            a->observe = Carnivore_observe; a->move = Carnivore_move; a->giveBirth = Wolf_giveBirth;
+            marker = -22;
+        } else if (type == 5) { // Omnivore
+            Omnivore* o = new Omnivore();
+            a = (Animal*)o;
+            a->loc = loc; a->energy=5; a->movingCost=1; a->birthThreshold=40; a->birthCost=20;
+            a->energyValue=5; a->viewRange=1; a->map=&globalMap; a->typeID=3; a->viewArray=nullptr;
+            a->observe = Omnivore_observe; a->move = Omnivore_move; a->giveBirth = Omnivore_giveBirth;
+            marker = -30;
+        }
+        
+        if(a) {
+            animals.push_back(a);
+            a->animalID = animals.size()-1; // temporary
+            // Encode: Marker * 10000 + Index
+            int encoded = marker * 10000 - (int)(animals.size()-1); 
+            globalMap[loc.x][loc.y] = encoded;
+        }
+    }
+}
 
 int main() {
-    // 1. Prepare Simulation
-    // Pass the global map to the helper to initialize grass and random seed
-    Simulation_prepare(studentID, globalMap);
+    globalMap = new int*[FIELD_SIZE];
+    for (int i = 0; i < FIELD_SIZE; ++i) {
+        globalMap[i] = new int[FIELD_SIZE];
+    }
+
+    Simulation_prepare(studentID, &globalMap);
 
     std::vector<Animal*> animals;
+    Simulation_spawnInitialAnimals(&globalMap, animals);
 
-    // 2. Spawn Animals
-    // This function (implemented in modified SimulationHelper.cpp below) 
-    // will now spawn Herbivores, Carnivores, Giraffes, Sloths, Tigers, Wolves, and Omnivores.
-    Simulation_spawnInitialAnimals(globalMap, animals);
+    // Add Problem 1.2 and 1.3 Animals
+    // Note: SimulationHelper spawns 200 Herbivores and 25 Carnivores.
+    // We add others:
+    spawnExtraAnimals(animals, GIRAFFE_COUNT, 1);
+    spawnExtraAnimals(animals, SLOTH_COUNT, 2);
+    spawnExtraAnimals(animals, TIGER_COUNT, 3);
+    spawnExtraAnimals(animals, WOLF_COUNT, 4);
+    spawnExtraAnimals(animals, 50, 5); // 50 Omnivores for Extra Credit
 
-    // 3. Main Simulation Loop
+    // Re-Index everything to be safe
+    for(size_t i=0; i<animals.size(); ++i) {
+        animals[i]->animalID = i;
+        // Determine marker based on type pointer or heuristics
+        // Simplified: use generic type ID or careful encoding.
+        // For this assignment, we rely on the object's logic to maintain marker consistency
+        // But initial map set needs to be correct.
+        int marker = -10;
+        // Logic to recover marker (simplified for length constraints)
+        // We assume spawn functions set it correctly. 
+        // We just update index:
+        int val = globalMap[animals[i]->loc.x][animals[i]->loc.y];
+        int baseMarker = val / 10000; 
+        if(baseMarker == 0) baseMarker = (animals[i]->typeID == 2 ? -20 : -10); // fallback
+        globalMap[animals[i]->loc.x][animals[i]->loc.y] = baseMarker * 10000 - i;
+    }
+
     for (int iter = 0; iter < SIMULATE_ITERATION_COUNT; ++iter) {
-        std::vector<Animal*> newBabies;
+        std::vector<Animal*> babies;
         std::vector<int> deadIndices;
 
-        // --- A. ACTION PHASE ---
         for (size_t i = 0; i < animals.size(); ++i) {
-            Animal* currentAnimal = animals[i];
+            Animal* anim = animals[i];
+            
+            // Skip if already dead/eaten this turn
+            if (anim->energy <= -10000) continue;
 
             // 1. Observe
-            currentAnimal->observe(currentAnimal);
+            anim->observe(anim);
 
             // 2. Move
-            // Returns: 100000 (nothing), -100000 (died hunger), or index of eaten animal
-            int actionResult = currentAnimal->move(currentAnimal);
+            int res = anim->move(anim);
 
-            bool i_died = false;
-
-            if (actionResult != 100000) {
-                if (actionResult < 0) {
-                    // Current animal died of hunger
-                    deadIndices.push_back(i);
-                    i_died = true;
-                } else {
-                    [cite_start]// Current animal ate the animal at index `actionResult` [cite: 155]
-                    deadIndices.push_back(actionResult);
-                    // Grant energy for eating (Standard survival logic, though not explicitly quantified in PDF text, implied by "preference is energyValue")
-                    currentAnimal->energy += 5; 
-                }
+            bool starved = false;
+            // Decode result
+            if (res < 0 && res != -100000) { // Ate and died
+                res = -res;
+                starved = true;
+            } else if (res == -100000) { // Just died
+                starved = true;
+                res = 100000;
             }
 
-            // 3. Give Birth
-            // Only if the current animal is still alive
-            if (!i_died) {
-                // We need to check if 'i' was already eaten by a previous mover.
-                bool alreadyDead = false;
-                for(int d : deadIndices) { if(d == (int)i) alreadyDead = true; }
-                
-                if (!alreadyDead) {
-                    Animal* baby = currentAnimal->giveBirth(currentAnimal);
-                    if (baby != nullptr) {
-                        newBabies.push_back(baby);
-                    }
-                }
+            // Mark eaten animal
+            if (res != 100000 && res < (int)animals.size()) {
+                 animals[res]->energy = -20000; // Mark eaten
+                 deadIndices.push_back(res);
+            }
+
+            if (starved) {
+                anim->energy = -20000;
+                deadIndices.push_back(i);
+            } else {
+                // 3. Breed
+                Animal* baby = anim->giveBirth(anim);
+                if (baby) babies.push_back(baby);
             }
         }
 
-        // --- B. CLEANUP PHASE ---
-        // Sort dead indices descending to remove safely
-        std::sort(deadIndices.rbegin(), deadIndices.rend());
-        // Remove duplicates (in case of weird edge cases)
-        deadIndices.erase(std::unique(deadIndices.begin(), deadIndices.end()), deadIndices.end());
+        // Cleanup
+        std::sort(deadIndices.begin(), deadIndices.end(), std::greater<int>());
+        auto last = std::unique(deadIndices.begin(), deadIndices.end());
+        deadIndices.erase(last, deadIndices.end());
 
         for (int idx : deadIndices) {
-            if (idx >= 0 && idx < (int)animals.size()) {
+            if (idx < (int)animals.size()) {
                 Animal* dead = animals[idx];
+                // Reset map if it points to this dead animal
+                // Note: The killer might have overwritten the map spot already.
+                // We check if map matches this animal ID.
+                int val = globalMap[dead->loc.x][dead->loc.y];
+                // ID is encoded in last 4 digits (negative)
+                // e.g. -200123. ID is 123. 
+                // Decode:
+                int storedIdx = -(val % 10000); 
+                if (storedIdx == dead->animalID) {
+                    globalMap[dead->loc.x][dead->loc.y] = 1; // Grow grass
+                }
                 
-                // Cleanup Map: Set location to Grass (1) if it still holds the dead animal's marker
-                // This prevents "ghost" barriers.
-                int mx = dead->loc.x;
-                int my = dead->loc.y;
-                int content = globalMap[mx][my];
-                // Check if map actually points to this specific animal index
-                // Decoding logic: abs(content % 100000) == idx
-                if (content < 0 && std::abs(content % 100000) == idx) {
-                    globalMap[mx][my] = 1; // Reset to grass
-                }
-
-                // Free memory
-                if (dead->viewArray) {
-                    int width = 2 * dead->viewRange + 1;
-                    for(int k=0; k < width; ++k) delete[] dead->viewArray[k];
-                    delete[] dead->viewArray;
-                }
+                dead->cleanup();
                 delete dead;
-                
                 animals.erase(animals.begin() + idx);
             }
         }
 
-        // --- C. NEW ARRIVALS ---
-        for (Animal* baby : newBabies) {
-            animals.push_back(baby);
+        // Add Babies
+        for(Animal* b : babies) animals.push_back(b);
+
+        // Re-Index Map
+        for(size_t i=0; i<animals.size(); ++i) {
+            animals[i]->animalID = i;
+            int x = animals[i]->loc.x;
+            int y = animals[i]->loc.y;
+            int val = globalMap[x][y];
+            int marker = val / 10000; 
+            if (marker == 0) marker = (animals[i]->typeID == 2 ? -20 : -10); // Safety
+            globalMap[x][y] = marker * 10000 - i;
         }
 
-        // --- D. MAP REFRESH ---
-        // Indices in `animals` vector have shifted due to erase.
-                
-        // Safest: Iterate vector and force-update map. 
-        for (size_t k = 0; k < animals.size(); ++k) {
-            Animal* a = animals[k];
-            // Re-encode: Marker * 100000 + index
-            // Value = Marker * 100000
-            // If marker < 0 (always is), Value is like -1000000.
-            int base = a->marker * 100000;
-            // The encoding in Utils is: baseValue + (marker < 0 ? -index : index)
-            int val = base + (a->marker < 0 ? -((int)k) : ((int)k));
-            globalMap[a->loc.x][a->loc.y] = val;
-        }
-
-        // --- E. GRASS GROWTH ---
-        for (int x = 0; x < FIELD_SIZE; ++x) {
-            for (int y = 0; y < FIELD_SIZE; ++y) {
-                if (globalMap[x][y] > 0 && globalMap[x][y] < 5) {
-                    globalMap[x][y]++; [cite_start]// Grow grass [cite: 201]
-                }
+        // Grow Grass
+        for(int i=0; i<FIELD_SIZE; ++i) {
+            for(int j=0; j<FIELD_SIZE; ++j) {
+                if(globalMap[i][j] > 0 && globalMap[i][j] < 5) globalMap[i][j]++;
             }
         }
     }
 
-    // --- F. FINAL SCORE CALCULATION ---
     long long finalVal = 0;
     for (int i = 1; i < FIELD_SIZE * FIELD_SIZE; ++i) {
         int x = (i - 1) % FIELD_SIZE;
@@ -157,6 +236,9 @@ int main() {
     }
 
     std::cout << "test1 result: " << finalVal << std::endl;
+
+    for (int i = 0; i < FIELD_SIZE; ++i) delete[] globalMap[i];
+    delete[] globalMap;
 
     return 0;
 }
